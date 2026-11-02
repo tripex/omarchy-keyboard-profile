@@ -15,12 +15,7 @@ You choose the keyboard yourself. The plugin doesn't detect what's plugged in. T
 omarchy plugin add https://github.com/tripex/omarchy-keyboard-profile --enable
 ```
 
-The plugin never edits your Hyprland config, so connect it yourself, once:
-
-```bash
-cp ~/.config/omarchy/plugins/tripex.keyboard-profile/examples/keyboard-profile.lua ~/.config/hypr/
-printf '\nrequire("hypr.keyboard-profile")\n' >> ~/.config/hypr/hyprland.lua
-```
+The first time you click the widget, it asks before it does anything. If you say yes, it creates `~/.config/hypr/keyboard-profile.lua` and adds one line to `hyprland.lua` so Hyprland loads that file. If you cancel, nothing is changed.
 
 ## Set up your keyboards
 
@@ -43,7 +38,7 @@ The Windows key is SUPER and Alt is Alt, unless you swap them. The example file 
 ## Command line
 
 ```bash
-~/.config/omarchy/plugins/tripex.keyboard-profile/bin/keyboard-profile [status|toggle|mac|windows|bindings <mac|windows>|menu]
+~/.config/omarchy/plugins/tripex.keyboard-profile/bin/keyboard-profile [status|toggle|mac|windows|bindings <mac|windows>|menu|setup|teardown]
 ```
 
 ## Dependencies
@@ -55,11 +50,13 @@ Tested on Omarchy 4.0.6 with Hyprland 0.56.2.
 ## Removal
 
 ```bash
-sed -i '/require("hypr.keyboard-profile")/d' ~/.config/hypr/hyprland.lua
-rm ~/.config/hypr/keyboard-profile.lua
+~/.config/omarchy/plugins/tripex.keyboard-profile/bin/keyboard-profile teardown
 omarchy plugin remove tripex.keyboard-profile
+rm ~/.config/hypr/keyboard-profile.lua
 rm -rf ~/.local/state/tripex-keyboard-profile
 ```
+
+`teardown` takes the line back out of `hyprland.lua`. The last two commands delete your profiles and the saved choice.
 
 ## License
 

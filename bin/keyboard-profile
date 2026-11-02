@@ -1,18 +1,60 @@
 #!/bin/bash
 
 # Switch the keyboard profile defined in ~/.config/hypr/keyboard-profile.lua.
-# Usage: keyboard-profile [status|toggle|mac|windows|bindings <mac|windows>|menu]
+# Usage: keyboard-profile [status|toggle|mac|windows|bindings <mac|windows>|menu|setup|teardown]
 
 STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/tripex-keyboard-profile/active"
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/keyboard-profile.lua"
+HYPR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
+CONFIG_FILE="$HYPR_DIR/keyboard-profile.lua"
+HYPRLAND_FILE="$HYPR_DIR/hyprland.lua"
+LOADED_PATTERN='^[[:space:]]*require\("hypr\.keyboard-profile"\)'
 BIN_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
-# The plugin doesn't touch the Hyprland config, so the user has to connect it first.
-require_config() {
-  [[ -f $CONFIG_FILE ]] && return
-  echo "keyboard-profile: $CONFIG_FILE is missing, see the plugin's README" >&2
-  omarchy-osd -i keyboard -m "Set up keyboard-profile.lua first (see README)"
-  exit 1
+is_set_up() {
+  [[ -f $CONFIG_FILE ]] && grep -qE "$LOADED_PATTERN" "$HYPRLAND_FILE" 2>/dev/null
+}
+
+# Hyprland only runs the profiles once hyprland.lua loads them. An existing
+# keyboard-profile.lua is kept, since it holds the user's own layouts and bindings.
+setup() {
+  if [[ ! -f $HYPRLAND_FILE ]]; then
+    echo "keyboard-profile: $HYPRLAND_FILE is missing" >&2
+    omarchy-osd -i keyboard -m "hyprland.lua not found"
+    exit 1
+  fi
+
+  is_set_up && return
+
+  [[ -f $CONFIG_FILE ]] || cp "$BIN_DIR/../examples/keyboard-profile.lua" "$CONFIG_FILE" || exit 1
+
+  if ! grep -qE "$LOADED_PATTERN" "$HYPRLAND_FILE"; then
+    printf '\n-- Keyboard profiles (tripex.keyboard-profile).\nrequire("hypr.keyboard-profile")\n' >>"$HYPRLAND_FILE" || exit 1
+  fi
+
+  hyprctl reload >/dev/null
+}
+
+# keyboard-profile.lua stays, so a later setup gets the user's own profiles back.
+teardown() {
+  sed -E -i --follow-symlinks \
+    -e '/^-- Keyboard profiles \(tripex\.keyboard-profile\)\.$/d' \
+    -e "/$LOADED_PATTERN/d" \
+    "$HYPRLAND_FILE" || exit 1
+
+  hyprctl reload >/dev/null
+}
+
+# The Hyprland config is only changed after the user has said yes.
+ask_setup() {
+  is_set_up && return
+
+  local selection
+  selection=$(omarchy-menu-select "Set up keyboard profiles" \
+    $'󰄬\tSet up\tCreates keyboard-profile.lua and adds one line to hyprland.lua' \
+    $'󰅖\tCancel' -- --width 640) || exit 0
+
+  [[ $selection == "Set up"* ]] || exit 0
+  setup
 }
 
 current() {
@@ -24,7 +66,7 @@ current() {
 }
 
 apply() {
-  require_config
+  ask_setup
   mkdir -p "$(dirname "$STATE_FILE")" || exit 1
   printf '%s\n' "$1" >"$STATE_FILE" || exit 1
 
@@ -46,7 +88,10 @@ apply() {
 # ones. The live list only knows the active profile, so all profile bindings are
 # taken out of it and the requested profile's are added back.
 bindings() {
-  require_config
+  if [[ ! -f $CONFIG_FILE ]]; then
+    echo "keyboard-profile: $CONFIG_FILE is missing, run: keyboard-profile setup" >&2
+    exit 1
+  fi
 
   local rows
   rows=$(lua "$BIN_DIR/profile-bindings.lua") || exit 1
@@ -66,7 +111,7 @@ show_bindings() {
 }
 
 menu() {
-  require_config
+  ask_setup
 
   local mac_row=$'󰀵\tMac keyboard' windows_row=$'󰖳\tWindows keyboard' selection
 
@@ -108,8 +153,14 @@ bindings)
 menu)
   menu
   ;;
+setup)
+  setup
+  ;;
+teardown)
+  teardown
+  ;;
 *)
-  echo "Usage: keyboard-profile [status|toggle|mac|windows|bindings <mac|windows>|menu]" >&2
+  echo "Usage: keyboard-profile [status|toggle|mac|windows|bindings <mac|windows>|menu|setup|teardown]" >&2
   exit 1
   ;;
 esac
