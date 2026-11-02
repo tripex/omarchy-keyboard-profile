@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "tripex.keyboard-profile",
+  "name": "Keyboard profile",
+  "version": "1.0.0",
+  "author": "tripex",
+  "license": "MIT",
+  "description": "Quick switch between a Mac and a Windows keyboard, each with its own layout and key bindings.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "Keyboard profile",
+    "description": "Shows the active keyboard (MAC/WIN), click switches. The icon lists each keyboard's key bindings.",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
